@@ -1,8 +1,11 @@
 import hikari
 from motor.motor_asyncio import AsyncIOMotorClient
 
+with open("mongotoken", mode="r", encoding="utf-8") as f:
+    mongotoken = f.read().strip("\n")
+
 cluster = AsyncIOMotorClient(
-    "..."
+    mongotoken
 )
 database = cluster.discordlocale
 
@@ -10,10 +13,12 @@ database = cluster.discordlocale
 class helper:
     "Helper, simplifier for webhooks and embeds"
 
-    async def webhook_send(guild_id: int, bot: hikari.GatewayBot, embed: hikari.Embed, data: dict = None):
+    async def webhook_send(
+        guild_id: int, bot: hikari.GatewayBot, embed: hikari.Embed, data: dict = None
+    ):
         db = DB()
         if not data:
-            data: dict = (await db.findo({"_id": guild_id}))
+            data: dict = await db.findo({"_id": guild_id})
         data = data["modules"]
         try:
             channel_id = int(data.get("logs"))
