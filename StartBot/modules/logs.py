@@ -36,6 +36,7 @@ perms_str = {
     hikari.Permissions.MODERATE_MEMBERS: "Timeout Members",
 }
 
+
 def format_dt(time: datetime.datetime, style: Optional[str] = None) -> str:
     """
     Convert a datetime into a Discord timestamp.
@@ -44,12 +45,15 @@ def format_dt(time: datetime.datetime, style: Optional[str] = None) -> str:
     valid_styles = ["t", "T", "d", "D", "f", "F", "R"]
 
     if style and style not in valid_styles:
-        raise ValueError(f"Invalid style passed. Valid styles: {' '.join(valid_styles)}")
+        raise ValueError(
+            f"Invalid style passed. Valid styles: {' '.join(valid_styles)}"
+        )
 
     if style:
         return f"<t:{int(time.timestamp())}:{style}>"
 
     return f"<t:{int(time.timestamp())}>"
+
 
 def get_perm_str(perm: hikari.Permissions) -> str:
     if perm_str := perms_str.get(perm):
@@ -58,9 +62,13 @@ def get_perm_str(perm: hikari.Permissions) -> str:
     assert perm.name is not None
     return perm.name.replace("_", " ").title()
 
+
 async def find_auditlog_data(
-    event: hikari.Event, *, event_type: hikari.AuditLogEventType, user_id: Optional[int] = None, 
-    bot: hikari.GatewayBot
+    event: hikari.Event,
+    *,
+    event_type: hikari.AuditLogEventType,
+    user_id: Optional[int] = None,
+    bot: hikari.GatewayBot,
 ) -> Optional[hikari.AuditLogEntry]:
     """Find a recently sent audit log entry that matches criteria.
     Parameters
@@ -103,7 +111,9 @@ async def find_auditlog_data(
         async for log in bot.rest.fetch_audit_log(guild, event_type=event_type):
             for entry in log.entries.values():
                 # We do not want to return entries older than 15 seconds
-                if (datetime.datetime.now(datetime.timezone.utc) - entry.id.created_at).total_seconds() > 30 or return_next:
+                if (
+                    datetime.datetime.now(datetime.timezone.utc) - entry.id.created_at
+                ).total_seconds() > 30 or return_next:
                     return
 
                 if user_id and user_id == entry.target_id:
@@ -117,6 +127,7 @@ async def find_auditlog_data(
     except hikari.ForbiddenError:
         return
 
+
 def send_webhook():
     def send(func):
         @wraps(func)
@@ -127,30 +138,37 @@ def send_webhook():
                 embed = tuple(embed)
                 data = embed[1]
                 embed = embed[0]
-            elif embed: pass
-            else: return
+            elif embed:
+                pass
+            else:
+                return
             await helper.webhook_send(
-                guild_id=args[0].guild_id,
-                bot=kwargs["bot"],
-                embed=embed,
-                data=data
+                guild_id=args[0].guild_id, bot=kwargs["bot"], embed=embed, data=data
             )
+
         return webhook
+
     return send
 
-def create_log_content(message: hikari.Message, max_length: Optional[int] = None) -> str:
+
+def create_log_content(
+    message: hikari.Message, max_length: Optional[int] = None
+) -> str:
 
     contents = message.content
     if message.attachments:
-        contents = f"{contents}\n//Это сообщение имеет один или более прикреплённых объектов"
+        contents = (
+            f"{contents}\n//Это сообщение имеет один или более прикреплённых объектов"
+        )
     if message.embeds:
         contents = f"{contents}\n//Сообщение содержит один и более эмбедов (вставок)"
-    if not contents: 
+    if not contents:
         contents = "//В сообщении нет контента."
     if max_length and len(contents) > max_length:
         return contents[: max_length - 3] + "..."
 
     return contents
+
 
 async def get_perms_diff(old_role: hikari.Role, role: hikari.Role, data: dict) -> str:
 
@@ -182,9 +200,11 @@ async def get_perms_diff(old_role: hikari.Role, role: hikari.Role, data: dict) -
 T = TypeVar("T")
 
 
-async def get_diff(guild_id: int, old_object: T, object: T, attrs: dict[str, str]) -> Tuple[str, dict, bool]:
+async def get_diff(
+    guild_id: int, old_object: T, object: T, attrs: dict[str, str]
+) -> Tuple[str, dict, bool]:
     db = DB()
-    data: dict = (await db.findo({"_id": guild_id}))
+    data: dict = await db.findo({"_id": guild_id})
     diff = ""
     is_colored = False
     try:
@@ -203,7 +223,9 @@ async def get_diff(guild_id: int, old_object: T, object: T, attrs: dict[str, str
 
         if hasattr(old, "name"):
             diff = (
-                f"{diff}\n{white}{attrs[attribute]}: {red}{old.name} {gray}-> {green}{new.name}" if old != new else diff
+                f"{diff}\n{white}{attrs[attribute]}: {red}{old.name} {gray}-> {green}{new.name}"
+                if old != new
+                else diff
             )
         elif isinstance(old, datetime.timedelta):
             diff = (
@@ -212,10 +234,17 @@ async def get_diff(guild_id: int, old_object: T, object: T, attrs: dict[str, str
                 else diff
             )
         else:
-            diff = f"{diff}\n{white}{attrs[attribute]}: {red}{old} {gray}-> {green}{new}" if old != new else diff
+            diff = (
+                f"{diff}\n{white}{attrs[attribute]}: {red}{old} {gray}-> {green}{new}"
+                if old != new
+                else diff
+            )
     return diff + reset, data, is_colored
 
-def strip_bot_reason(reason: Optional[str]) -> Tuple[str, str | None] | Tuple[None, None]:
+
+def strip_bot_reason(
+    reason: Optional[str],
+) -> Tuple[str, str | None] | Tuple[None, None]:
     """
     Strip action author for it to be parsed into the actual embed instead of the bot
     """
@@ -223,21 +252,32 @@ def strip_bot_reason(reason: Optional[str]) -> Tuple[str, str | None] | Tuple[No
         return None, None
 
     fmt_reason = (
-        reason.split("): ", maxsplit=1)[1] if len(reason.split("): ", maxsplit=1)) > 1 else reason
+        reason.split("): ", maxsplit=1)[1]
+        if len(reason.split("): ", maxsplit=1)) > 1
+        else reason
     )  # Remove author
-    moderator = reason.split(" (")[0] if fmt_reason != reason else None  # Get actual moderator, not the bot
+    moderator = (
+        reason.split(" (")[0] if fmt_reason != reason else None
+    )  # Get actual moderator, not the bot
     return fmt_reason, moderator
+
 
 @component.with_listener(hikari.GuildMessageDeleteEvent)
 @send_webhook()
-async def message_delete(event: hikari.GuildMessageDeleteEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> hikari.Embed:
+async def message_delete(
+    event: hikari.GuildMessageDeleteEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> hikari.Embed:
     if not event.old_message or event.old_message.author.is_bot:
         return
-    
+
     contents = create_log_content(event.old_message)
 
     entry = await find_auditlog_data(
-        event, event_type=hikari.AuditLogEventType.MESSAGE_DELETE, user_id=event.old_message.author.id, bot=bot
+        event,
+        event_type=hikari.AuditLogEventType.MESSAGE_DELETE,
+        user_id=event.old_message.author.id,
+        bot=bot,
     )
     channel = event.get_channel()
     assert channel is not None
@@ -269,9 +309,16 @@ async def message_delete(event: hikari.GuildMessageDeleteEvent, bot: hikari.Gate
 
 @component.with_listener(hikari.GuildMessageUpdateEvent)
 @send_webhook()
-async def message_update(event: hikari.GuildMessageUpdateEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> hikari.Embed:
-    
-    if not event.old_message or not event.old_message.author or event.old_message.author.is_bot:
+async def message_update(
+    event: hikari.GuildMessageUpdateEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> hikari.Embed:
+
+    if (
+        not event.old_message
+        or not event.old_message.author
+        or event.old_message.author.is_bot
+    ):
         return
 
     assert event.old_message and event.message
@@ -294,10 +341,15 @@ async def message_update(event: hikari.GuildMessageUpdateEvent, bot: hikari.Gate
 
 @component.with_listener(hikari.GuildBulkMessageDeleteEvent)
 @send_webhook()
-async def bulk_message_delete(event: hikari.GuildBulkMessageDeleteEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> hikari.Embed:
+async def bulk_message_delete(
+    event: hikari.GuildBulkMessageDeleteEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> hikari.Embed:
 
     moderator = "Discord"
-    entry = await find_auditlog_data(event, event_type=hikari.AuditLogEventType.MESSAGE_BULK_DELETE, bot=bot)
+    entry = await find_auditlog_data(
+        event, event_type=hikari.AuditLogEventType.MESSAGE_BULK_DELETE, bot=bot
+    )
     if entry:
         assert entry.user_id is not None
         moderator = bot.cache.get_member(event.guild_id, entry.user_id)
@@ -313,11 +365,17 @@ async def bulk_message_delete(event: hikari.GuildBulkMessageDeleteEvent, bot: hi
     )
     return embed
 
+
 @component.with_listener(hikari.RoleDeleteEvent)
 @send_webhook()
-async def role_delete(event: hikari.RoleDeleteEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> None | hikari.Embed:
+async def role_delete(
+    event: hikari.RoleDeleteEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> None | hikari.Embed:
 
-    entry = await find_auditlog_data(event, event_type=hikari.AuditLogEventType.ROLE_DELETE, bot=bot)
+    entry = await find_auditlog_data(
+        event, event_type=hikari.AuditLogEventType.ROLE_DELETE, bot=bot
+    )
     if entry and event.old_role:
         assert entry.user_id is not None
         moderator = bot.cache.get_member(event.guild_id, entry.user_id)
@@ -331,9 +389,14 @@ async def role_delete(event: hikari.RoleDeleteEvent, bot: hikari.GatewayBot = ta
 
 @component.with_listener(hikari.RoleCreateEvent)
 @send_webhook()
-async def role_create(event: hikari.RoleCreateEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> None | hikari.Embed:
+async def role_create(
+    event: hikari.RoleCreateEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> None | hikari.Embed:
 
-    entry = await find_auditlog_data(event, event_type=hikari.AuditLogEventType.ROLE_CREATE, bot=bot)
+    entry = await find_auditlog_data(
+        event, event_type=hikari.AuditLogEventType.ROLE_CREATE, bot=bot
+    )
     if entry and event.role:
         assert entry.user_id is not None
         moderator = bot.cache.get_member(event.guild_id, entry.user_id)
@@ -347,9 +410,14 @@ async def role_create(event: hikari.RoleCreateEvent, bot: hikari.GatewayBot = ta
 
 @component.with_listener(hikari.RoleUpdateEvent)
 @send_webhook()
-async def role_update(event: hikari.RoleUpdateEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> None | Tuple[hikari.Embed, dict]:
+async def role_update(
+    event: hikari.RoleUpdateEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> None | Tuple[hikari.Embed, dict]:
 
-    entry = await find_auditlog_data(event, event_type=hikari.AuditLogEventType.ROLE_UPDATE, bot=bot)
+    entry = await find_auditlog_data(
+        event, event_type=hikari.AuditLogEventType.ROLE_UPDATE, bot=bot
+    )
     if entry and event.old_role:
         assert entry.user_id
         moderator = bot.cache.get_member(event.guild_id, entry.user_id)
@@ -363,13 +431,17 @@ async def role_update(event: hikari.RoleUpdateEvent, bot: hikari.GatewayBot = ta
             "icon_hash": "Icon Hash",
             "unicode_emoji": "Unicode Emoji",
         }
-        diff, data, iscolored = await get_diff(event.guild_id, event.old_role, event.role, attrs)
+        diff, data, iscolored = await get_diff(
+            event.guild_id, event.old_role, event.role, attrs
+        )
         diff = diff + "\n" if diff not in ["[0m", ""] else ""
         perms_diff = await get_perms_diff(event.old_role, event.role, data)
         if not diff and not perms_diff:
             diff = "Changes could not be resolved."
         color = "[0;37m" if iscolored else ""
-        perms_str = f"{color}Permissions:{perms_diff}" if perms_diff not in ["[0m", ""] else ""
+        perms_str = (
+            f"{color}Permissions:{perms_diff}" if perms_diff not in ["[0m", ""] else ""
+        )
         embed = hikari.Embed(
             title=f"🖊️ Role updated",
             description=f"""**Role:** `{event.role.name}` \n**Moderator:** `{moderator}`\n**Changes:**```ansi\n{diff}{perms_str}```""",
@@ -377,11 +449,17 @@ async def role_update(event: hikari.RoleUpdateEvent, bot: hikari.GatewayBot = ta
         )
         return embed, data
 
+
 @component.with_listener(hikari.GuildChannelDeleteEvent)
 @send_webhook()
-async def channel_delete(event: hikari.GuildChannelDeleteEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> None | hikari.Embed:
+async def channel_delete(
+    event: hikari.GuildChannelDeleteEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> None | hikari.Embed:
 
-    entry = await find_auditlog_data(event, event_type=hikari.AuditLogEventType.CHANNEL_DELETE, bot=bot)
+    entry = await find_auditlog_data(
+        event, event_type=hikari.AuditLogEventType.CHANNEL_DELETE, bot=bot
+    )
     if entry and event.channel:
         assert entry.user_id is not None
         moderator = bot.cache.get_member(event.guild_id, entry.user_id)
@@ -395,9 +473,14 @@ async def channel_delete(event: hikari.GuildChannelDeleteEvent, bot: hikari.Gate
 
 @component.with_listener(hikari.GuildChannelCreateEvent)
 @send_webhook()
-async def channel_create(event: hikari.GuildChannelCreateEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> None | hikari.Embed:
+async def channel_create(
+    event: hikari.GuildChannelCreateEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> None | hikari.Embed:
 
-    entry = await find_auditlog_data(event, event_type=hikari.AuditLogEventType.CHANNEL_CREATE, bot=bot)
+    entry = await find_auditlog_data(
+        event, event_type=hikari.AuditLogEventType.CHANNEL_CREATE, bot=bot
+    )
     if entry and event.channel:
         assert entry.user_id is not None
         moderator = bot.cache.get_member(event.guild_id, entry.user_id)
@@ -411,9 +494,14 @@ async def channel_create(event: hikari.GuildChannelCreateEvent, bot: hikari.Gate
 
 @component.with_listener(hikari.GuildChannelUpdateEvent)
 @send_webhook()
-async def channel_update(event: hikari.GuildChannelUpdateEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> None | Tuple[hikari.Embed, dict]:
+async def channel_update(
+    event: hikari.GuildChannelUpdateEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> None | Tuple[hikari.Embed, dict]:
 
-    entry = await find_auditlog_data(event, event_type=hikari.AuditLogEventType.CHANNEL_UPDATE, bot=bot)
+    entry = await find_auditlog_data(
+        event, event_type=hikari.AuditLogEventType.CHANNEL_UPDATE, bot=bot
+    )
 
     if entry and event.old_channel:
         assert entry.user_id is not None
@@ -429,17 +517,24 @@ async def channel_update(event: hikari.GuildChannelUpdateEvent, bot: hikari.Gate
         if isinstance(event.channel, hikari.GuildTextChannel):
             attrs["rate_limit_per_user"] = "Slowmode duration"
 
-        if isinstance(event.channel, (hikari.GuildVoiceChannel, hikari.GuildStageChannel)):
+        if isinstance(
+            event.channel, (hikari.GuildVoiceChannel, hikari.GuildStageChannel)
+        ):
             attrs["bitrate"] = "Bitrate"
             attrs["region"] = "Region"
             attrs["user_limit"] = "User limit"
         if isinstance(event.channel, hikari.GuildVoiceChannel):
             attrs["video_quality_mode"] = "Video Quality"
 
-        diff, data = await get_diff(event.guild_id, event.old_channel, event.channel, attrs)
+        diff, data = await get_diff(
+            event.guild_id, event.old_channel, event.channel, attrs
+        )
         diff = diff + "\n" if diff not in ["[0m", ""] else ""
         # Because displaying this nicely is practically impossible
-        if event.old_channel.permission_overwrites != event.channel.permission_overwrites:
+        if (
+            event.old_channel.permission_overwrites
+            != event.channel.permission_overwrites
+        ):
             diff = f"{diff}Channel overrides have been modified."
 
         diff = diff or "Changes could not be resolved."
@@ -451,22 +546,33 @@ async def channel_update(event: hikari.GuildChannelUpdateEvent, bot: hikari.Gate
         )
         return embed, data
 
+
 @component.with_listener(hikari.GuildUpdateEvent)
 @send_webhook()
-async def guild_update(event: hikari.GuildUpdateEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> None | Tuple[hikari.Embed, dict]:
+async def guild_update(
+    event: hikari.GuildUpdateEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> None | Tuple[hikari.Embed, dict]:
 
-    entry = await find_auditlog_data(event, event_type=hikari.AuditLogEventType.GUILD_UPDATE, bot=bot)
+    entry = await find_auditlog_data(
+        event, event_type=hikari.AuditLogEventType.GUILD_UPDATE, bot=bot
+    )
 
     if event.old_guild:
         if entry:
             assert entry.user_id is not None
-            moderator = bot.cache.get_member(event.guild_id, entry.user_id) if entry else "Discord"
+            moderator = (
+                bot.cache.get_member(event.guild_id, entry.user_id)
+                if entry
+                else "Discord"
+            )
             moderator = moderator or "Discord"
         else:
             moderator = "Discord"
 
         if (
-            event.old_guild.premium_subscription_count != event.guild.premium_subscription_count
+            event.old_guild.premium_subscription_count
+            != event.guild.premium_subscription_count
             and event.old_guild.premium_tier == event.guild.premium_tier
         ):
             # If someone boosted but there was no tier change, ignore
@@ -509,16 +615,25 @@ async def guild_update(event: hikari.GuildUpdateEvent, bot: hikari.GatewayBot = 
         )
         return embed, data
 
+
 @component.with_listener(hikari.BanDeleteEvent)
 @send_webhook()
-async def member_ban_remove(event: hikari.BanDeleteEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> hikari.Embed:
+async def member_ban_remove(
+    event: hikari.BanDeleteEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> hikari.Embed:
 
     entry = await find_auditlog_data(
-        event, event_type=hikari.AuditLogEventType.MEMBER_BAN_REMOVE, user_id=event.user.id, bot=bot
+        event,
+        event_type=hikari.AuditLogEventType.MEMBER_BAN_REMOVE,
+        user_id=event.user.id,
+        bot=bot,
     )
     if entry:
         assert entry.user_id is not None
-        moderator = bot.cache.get_member(event.guild_id, entry.user_id) if entry else "Unknown"
+        moderator = (
+            bot.cache.get_member(event.guild_id, entry.user_id) if entry else "Unknown"
+        )
         reason: Optional[str] = entry.reason or "No reason provided"
     else:
         moderator = "Error"
@@ -538,12 +653,22 @@ async def member_ban_remove(event: hikari.BanDeleteEvent, bot: hikari.GatewayBot
 
 @component.with_listener(hikari.BanCreateEvent)
 @send_webhook()
-async def member_ban_add(event: hikari.BanCreateEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> hikari.Embed:
+async def member_ban_add(
+    event: hikari.BanCreateEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> hikari.Embed:
 
-    entry = await find_auditlog_data(event, event_type=hikari.AuditLogEventType.MEMBER_BAN_ADD, user_id=event.user.id, bot=bot)
+    entry = await find_auditlog_data(
+        event,
+        event_type=hikari.AuditLogEventType.MEMBER_BAN_ADD,
+        user_id=event.user.id,
+        bot=bot,
+    )
     if entry:
         assert entry.user_id is not None
-        moderator = bot.cache.get_member(event.guild_id, entry.user_id) if entry else "Unknown"
+        moderator = (
+            bot.cache.get_member(event.guild_id, entry.user_id) if entry else "Unknown"
+        )
         reason: Optional[str] = entry.reason or "No reason provided"
     else:
         moderator = "Unknown"
@@ -553,7 +678,11 @@ async def member_ban_add(event: hikari.BanCreateEvent, bot: hikari.GatewayBot = 
         reason, moderator = strip_bot_reason(reason)
         moderator = moderator or bot.get_me()
     member = bot.cache.get_member(event.guild_id, event.user_id)
-    roles = f"\n**Roles:** {(', '.join([i.mention for i in member.get_roles() if i.name != '@everyone']))}" if member else ""
+    roles = (
+        f"\n**Roles:** {(', '.join([i.mention for i in member.get_roles() if i.name != '@everyone']))}"
+        if member
+        else ""
+    )
     embed = hikari.Embed(
         title=f"🔨 User banned",
         description=f"**Offender:** `{event.user} ({event.user.id})`{roles}\n**Moderator:**`{moderator}`\n**Reason:**```{reason}```",
@@ -561,15 +690,26 @@ async def member_ban_add(event: hikari.BanCreateEvent, bot: hikari.GatewayBot = 
     )
     return embed
 
+
 @component.with_listener(hikari.MemberDeleteEvent)
 @send_webhook()
-async def member_delete(event: hikari.MemberDeleteEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> hikari.Embed:
+async def member_delete(
+    event: hikari.MemberDeleteEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> hikari.Embed:
 
-    entry = await find_auditlog_data(event, event_type=hikari.AuditLogEventType.MEMBER_KICK, user_id=event.user.id, bot=bot)
+    entry = await find_auditlog_data(
+        event,
+        event_type=hikari.AuditLogEventType.MEMBER_KICK,
+        user_id=event.user.id,
+        bot=bot,
+    )
     roles = f"\n**Roles:** {(', '.join([i.mention for i in event.old_member.get_roles() if i.name != '@everyone']))}"
     if entry:  # This is a kick
         assert entry.user_id is not None
-        moderator = bot.cache.get_member(event.guild_id, entry.user_id) if entry else "Unknown"
+        moderator = (
+            bot.cache.get_member(event.guild_id, entry.user_id) if entry else "Unknown"
+        )
         reason: Optional[str] = entry.reason or "No reason provided"
 
         if isinstance(moderator, hikari.Member) and moderator.id == bot.get_me().id:
@@ -591,9 +731,13 @@ async def member_delete(event: hikari.MemberDeleteEvent, bot: hikari.GatewayBot 
     embed.set_thumbnail(event.user.display_avatar_url)
     return embed
 
+
 @component.with_listener(hikari.MemberCreateEvent)
 @send_webhook()
-async def member_create(event: hikari.MemberCreateEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> hikari.Embed:
+async def member_create(
+    event: hikari.MemberCreateEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> hikari.Embed:
 
     embed = hikari.Embed(
         title=f"🚪 User joined",
@@ -611,7 +755,10 @@ async def member_create(event: hikari.MemberCreateEvent, bot: hikari.GatewayBot 
 
 @component.with_listener(hikari.MemberUpdateEvent)
 @send_webhook()
-async def member_update(event: hikari.MemberUpdateEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> None | hikari.Embed:
+async def member_update(
+    event: hikari.MemberUpdateEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> None | hikari.Embed:
 
     if not event.old_member:
         return
@@ -619,15 +766,24 @@ async def member_update(event: hikari.MemberUpdateEvent, bot: hikari.GatewayBot 
     old_member = event.old_member
     member = event.member
 
-    if old_member.communication_disabled_until() != member.communication_disabled_until():
+    if (
+        old_member.communication_disabled_until()
+        != member.communication_disabled_until()
+    ):
         """Timeout logging"""
         entry = await find_auditlog_data(
-            event, event_type=hikari.AuditLogEventType.MEMBER_UPDATE, user_id=event.user.id, bot=bot
+            event,
+            event_type=hikari.AuditLogEventType.MEMBER_UPDATE,
+            user_id=event.user.id,
+            bot=bot,
         )
         if not entry:
             return
 
-        if entry.reason == "Automatic timeout extension applied." and entry.user_id == bot.get_me().id:
+        if (
+            entry.reason == "Automatic timeout extension applied."
+            and entry.user_id == bot.get_me().id
+        ):
             return
 
         reason = entry.reason
@@ -689,10 +845,15 @@ async def member_update(event: hikari.MemberUpdateEvent, bot: hikari.GatewayBot 
             return
 
         entry = await find_auditlog_data(
-            event, event_type=hikari.AuditLogEventType.MEMBER_ROLE_UPDATE, user_id=event.user.id, bot=bot
+            event,
+            event_type=hikari.AuditLogEventType.MEMBER_ROLE_UPDATE,
+            user_id=event.user.id,
+            bot=bot,
         )
         assert entry and entry.user_id
-        moderator = bot.cache.get_member(event.guild_id, entry.user_id) if entry else "Unknown"
+        moderator = (
+            bot.cache.get_member(event.guild_id, entry.user_id) if entry else "Unknown"
+        )
         reason: Optional[str] = entry.reason if entry else "No reason provided."
 
         if isinstance(moderator, (hikari.Member)) and moderator.is_bot:
@@ -712,7 +873,7 @@ async def member_update(event: hikari.MemberUpdateEvent, bot: hikari.GatewayBot 
         elif len(rem_diff) != 0:
             role = bot.cache.get_role(rem_diff[0])
             assert role is not None
-            
+
             embed = hikari.Embed(
                 title=f"🖊️ Member roles updated",
                 description=f"**User:** `{member} ({member.id})`\n**Moderator:** `{moderator}`\n**Role removed:** {role.mention}",
@@ -720,9 +881,11 @@ async def member_update(event: hikari.MemberUpdateEvent, bot: hikari.GatewayBot 
             )
             return embed
 
+
 @tanjun.as_loader
 def load_component(client: tanjun.abc.Client) -> None:
     client.add_component(component.copy())
+
 
 @tanjun.as_unloader
 def unload_component(client: tanjun.abc.Client) -> None:
