@@ -1,3 +1,8 @@
+"""
+Special gratitude to HyperGH, who shared that code
+I had adapted it to tanjun and developed it as well
+"""
+
 import tanjun
 import hikari
 from functools import wraps
@@ -129,6 +134,7 @@ async def find_auditlog_data(
 
 
 def send_webhook():
+    time = datetime.datetime.now(datetime.timezone.utc)
     def send(func):
         @wraps(func)
         async def webhook(*args, **kwargs):
@@ -142,6 +148,7 @@ def send_webhook():
                 pass
             else:
                 return
+            embed.timestamp = time
             await helper.webhook_send(
                 guild_id=args[0].guild_id, bot=kwargs["bot"], embed=embed, data=data
             )
@@ -176,10 +183,8 @@ async def get_perms_diff(old_role: hikari.Role, role: hikari.Role, data: dict) -
     new_perms = role.permissions
     perms_diff = ""
     is_colored = False
-    try:
-        is_colored = data["modules"].get("logs_color")
-    except KeyError:
-        pass
+    is_colored = data["modules"].get("logs_color", False)
+
     gray = "[1;30m" if is_colored else ""
     white = "[0;37m" if is_colored else ""
     red = "[1;31m" if is_colored else ""
@@ -207,10 +212,8 @@ async def get_diff(
     data: dict = await db.findo({"_id": guild_id})
     diff = ""
     is_colored = False
-    try:
-        is_colored = data["modules"].get("logs_color")
-    except KeyError:
-        pass
+    is_colored = data["modules"].get("logs_color", False)
+
     gray = "[1;30m" if is_colored else ""
     white = "[0;37m" if is_colored else ""
     red = "[1;31m" if is_colored else ""
@@ -270,7 +273,7 @@ async def message_delete(
 ) -> hikari.Embed:
     if not event.old_message or event.old_message.author.is_bot:
         return
-
+    
     contents = create_log_content(event.old_message)
 
     entry = await find_auditlog_data(
@@ -289,8 +292,8 @@ async def message_delete(
 
         embed = hikari.Embed(
             title=f"🗑️ Message deleted by Moderator",
-            description=f"""**Message author:** `{event.old_message.author} ({event.old_message.author.id})`
-**Moderator:** `{moderator} ({moderator.id})`
+            description=f"""**Message author:** {event.old_message.author.mention}
+**Moderator:** {moderator.mention}
 **Channel:** {channel.mention}
 **Message content:** ```{contents}```""",
             color=ERROR_COLOR,
@@ -304,7 +307,7 @@ async def message_delete(
 **Message content:** ```{contents}```""",
             color=ERROR_COLOR,
         )
-    return embed
+    return helper.embed_builder(embed, event.old_message.author)
 
 
 @component.with_listener(hikari.GuildMessageUpdateEvent)
@@ -313,7 +316,7 @@ async def message_update(
     event: hikari.GuildMessageUpdateEvent,
     bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
 ) -> hikari.Embed:
-
+    
     if (
         not event.old_message
         or not event.old_message.author
@@ -330,13 +333,13 @@ async def message_update(
 
     embed = hikari.Embed(
         title=f"🖊️ Message edited",
-        description=f"""**Message author:** `{event.author} ({event.author_id})`
+        description=f"""**Message author:** {event.author.mention}
 **Channel:** {channel.mention}
 **Before:** ```{old_content}``` \n**After:** ```{new_content}```
 [Jump!]({event.message.make_link(event.guild_id)})""",
         color=EMBED_BLUE,
     )
-    return embed
+    return helper.embed_builder(embed, event.old_message.author)
 
 
 @component.with_listener(hikari.GuildBulkMessageDeleteEvent)
@@ -359,11 +362,11 @@ async def bulk_message_delete(
     embed = hikari.Embed(
         title=f"🗑️ Bulk message deletion",
         description=f"""**Channel:** {channel.mention if channel else 'Unknown'}
-**Moderator:** `{moderator}`
+**Moderator:** {moderator.mention if moderator != "Discord" else "Discord"}
 ```Multiple messages have been purged.```""",
         color=ERROR_COLOR,
     )
-    return embed
+    return helper.embed_builder(embed, event.get_guild())
 
 
 @component.with_listener(hikari.RoleDeleteEvent)
@@ -381,10 +384,10 @@ async def role_delete(
         moderator = bot.cache.get_member(event.guild_id, entry.user_id)
         embed = hikari.Embed(
             title=f"🗑️ Role deleted",
-            description=f"**Role:** `{event.old_role}`\n**Moderator:** `{moderator}`",
+            description=f"**Role:** `{event.old_role}`\n**Moderator:** {moderator.mention}",
             color=ERROR_COLOR,
         )
-        return embed
+        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id))
 
 
 @component.with_listener(hikari.RoleCreateEvent)
@@ -402,10 +405,10 @@ async def role_create(
         moderator = bot.cache.get_member(event.guild_id, entry.user_id)
         embed = hikari.Embed(
             title=f"❇️ Role created",
-            description=f"**Role:** `{event.role}`\n**Moderator:** `{moderator}`",
+            description=f"**Role:** {event.role.mention}\n**Moderator:** {moderator.mention}",
             color=EMBED_GREEN,
         )
-        return embed
+        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id))
 
 
 @component.with_listener(hikari.RoleUpdateEvent)
@@ -444,10 +447,10 @@ async def role_update(
         )
         embed = hikari.Embed(
             title=f"🖊️ Role updated",
-            description=f"""**Role:** `{event.role.name}` \n**Moderator:** `{moderator}`\n**Changes:**```ansi\n{diff}{perms_str}```""",
+            description=f"""**Role:** {event.role.mention}\n**Moderator:** {moderator.mention}\n**Changes:**```ansi\n{diff}{perms_str}```""",
             color=EMBED_BLUE,
         )
-        return embed, data
+        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id)), data
 
 
 @component.with_listener(hikari.GuildChannelDeleteEvent)
@@ -465,10 +468,10 @@ async def channel_delete(
         moderator = bot.cache.get_member(event.guild_id, entry.user_id)
         embed = hikari.Embed(
             title=f"#️⃣ Channel deleted",
-            description=f"**Channel:** `{event.channel.name}` `({event.channel.type.name})`\n**Moderator:** `{moderator}`",  # type: ignore
+            description=f"**Channel:** {event.channel.mention} `({event.channel.type.name})`\n**Moderator:** {moderator.mention}",  # type: ignore
             color=ERROR_COLOR,
         )
-        return embed
+        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id))
 
 
 @component.with_listener(hikari.GuildChannelCreateEvent)
@@ -486,10 +489,10 @@ async def channel_create(
         moderator = bot.cache.get_member(event.guild_id, entry.user_id)
         embed = hikari.Embed(
             title=f"#️⃣ Channel created",
-            description=f"**Channel:** {event.channel.mention} `({event.channel.type.name})`\n**Moderator:** `{moderator}`",  # type: ignore
+            description=f"**Channel:** {event.channel.mention} `({event.channel.type.name})`\n**Moderator:** {moderator.mention}",  # type: ignore
             color=EMBED_GREEN,
         )
-        return embed
+        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id))
 
 
 @component.with_listener(hikari.GuildChannelUpdateEvent)
@@ -526,7 +529,7 @@ async def channel_update(
         if isinstance(event.channel, hikari.GuildVoiceChannel):
             attrs["video_quality_mode"] = "Video Quality"
 
-        diff, data = await get_diff(
+        diff, data, iscolored = await get_diff(
             event.guild_id, event.old_channel, event.channel, attrs
         )
         diff = diff + "\n" if diff not in ["[0m", ""] else ""
@@ -541,10 +544,10 @@ async def channel_update(
 
         embed = hikari.Embed(
             title=f"#️⃣ Channel updated",
-            description=f"**Channel:** {event.channel.mention}\n**Moderator:** `{moderator}`\n**Changes:**\n```ansi\n{diff}```",
+            description=f"**Channel:** {event.channel.mention}\n**Moderator:** {moderator.mention}\n**Changes:**\n```ansi\n{diff}```",
             color=EMBED_BLUE,
         )
-        return embed, data
+        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id)), data
 
 
 @component.with_listener(hikari.GuildUpdateEvent)
@@ -562,13 +565,13 @@ async def guild_update(
         if entry:
             assert entry.user_id is not None
             moderator = (
-                bot.cache.get_member(event.guild_id, entry.user_id)
+                bot.cache.get_member(event.guild_id, entry.user_id).mention
                 if entry
-                else "Discord"
+                else "`Discord`"
             )
-            moderator = moderator or "Discord"
+            moderator = moderator or "`Discord`"
         else:
-            moderator = "Discord"
+            moderator = "`Discord`"
 
         if (
             event.old_guild.premium_subscription_count
@@ -605,15 +608,15 @@ async def guild_update(
             "widget_channel_id": "Widget channel",
             "nsfw_level": "NSFW Level",
         }
-        diff, data = await get_diff(event.guild_id, event.old_guild, event.guild, attrs)
+        diff, data, iscolored = await get_diff(event.guild_id, event.old_guild, event.guild, attrs)
         diff = diff or "Changes could not be resolved."
 
         embed = hikari.Embed(
             title=f"🖊️ Guild updated",
-            description=f"Guild settings have been updated by `{moderator}`.\n**Changes:**\n```ansi\n{diff}```",
+            description=f"Guild settings have been updated by {moderator}.\n**Changes:**\n```ansi\n{diff}```",
             color=EMBED_BLUE,
         )
-        return embed, data
+        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id)), data
 
 
 @component.with_listener(hikari.BanDeleteEvent)
@@ -632,7 +635,9 @@ async def member_ban_remove(
     if entry:
         assert entry.user_id is not None
         moderator = (
-            bot.cache.get_member(event.guild_id, entry.user_id) if entry else "Unknown"
+            bot.cache.get_member(event.guild_id, entry.user_id).mention
+            if entry
+            else "`Unknown`"
         )
         reason: Optional[str] = entry.reason or "No reason provided"
     else:
@@ -645,10 +650,10 @@ async def member_ban_remove(
 
     embed = hikari.Embed(
         title=f"🔨 User unbanned",
-        description=f"**Offender:** `{event.user} ({event.user.id})`\n**Moderator:**`{moderator}`\n**Reason:** ```{reason}```",
+        description=f"**Offender:** {event.user.mention} ({event.user})\n**Moderator:** {moderator}\n**Reason:** ```{reason}```",
         color=EMBED_GREEN,
     )
-    return embed
+    return helper.embed_builder(embed, event.user)
 
 
 @component.with_listener(hikari.BanCreateEvent)
@@ -667,7 +672,9 @@ async def member_ban_add(
     if entry:
         assert entry.user_id is not None
         moderator = (
-            bot.cache.get_member(event.guild_id, entry.user_id) if entry else "Unknown"
+            bot.cache.get_member(event.guild_id, entry.user_id).mention
+            if entry
+            else "Unknown"
         )
         reason: Optional[str] = entry.reason or "No reason provided"
     else:
@@ -677,7 +684,7 @@ async def member_ban_add(
     if isinstance(moderator, hikari.Member) and moderator.id == bot.get_me().id:
         reason, moderator = strip_bot_reason(reason)
         moderator = moderator or bot.get_me()
-    member = bot.cache.get_member(event.guild_id, event.user_id)
+    member = bot.cache.get_member(event.guild_id, event.user_id).mention
     roles = (
         f"\n**Roles:** {(', '.join([i.mention for i in member.get_roles() if i.name != '@everyone']))}"
         if member
@@ -685,10 +692,10 @@ async def member_ban_add(
     )
     embed = hikari.Embed(
         title=f"🔨 User banned",
-        description=f"**Offender:** `{event.user} ({event.user.id})`{roles}\n**Moderator:**`{moderator}`\n**Reason:**```{reason}```",
+        description=f"**Offender:** {event.user.mention} ({event.user}){roles}\n**Moderator:** {moderator.mention}\n**Reason:**```{reason}```",
         color=ERROR_COLOR,
     )
-    return embed
+    return helper.embed_builder(embed, event.user)
 
 
 @component.with_listener(hikari.MemberDeleteEvent)
@@ -708,7 +715,9 @@ async def member_delete(
     if entry:  # This is a kick
         assert entry.user_id is not None
         moderator = (
-            bot.cache.get_member(event.guild_id, entry.user_id) if entry else "Unknown"
+            bot.cache.get_member(event.guild_id, entry.user_id).mention
+            if entry
+            else "Unknown"
         )
         reason: Optional[str] = entry.reason or "No reason provided"
 
@@ -718,18 +727,18 @@ async def member_delete(
 
         embed = hikari.Embed(
             title=f"🚪👈 User was kicked",
-            description=f"**Offender:** `{event.user} ({event.user.id})`{roles}\n**Moderator:**`{moderator}`\n**Reason:**```{reason}```",
+            description=f"**Offender:** {event.user.mention} ({event.user}){roles}\n**Moderator:** {moderator}\n**Reason:**```{reason}```",
             color=ERROR_COLOR,
         )
-        return embed
+        return helper.embed_builder(embed, event.user)
 
     embed = hikari.Embed(
         title=f"🚪 User left",
-        description=f"**User:** `{event.user} ({event.user.id})`{roles}\n**User count:** `{len(bot.cache.get_members_view_for_guild(event.guild_id))}`",
+        description=f"**User:** `{event.user.mention} ({event.user})`{roles}\n**User count:** `{len(bot.cache.get_members_view_for_guild(event.guild_id))}`",
         color=ERROR_COLOR,
     )
     embed.set_thumbnail(event.user.display_avatar_url)
-    return embed
+    return helper.embed_builder(embed, event.user)
 
 
 @component.with_listener(hikari.MemberCreateEvent)
@@ -741,7 +750,7 @@ async def member_create(
 
     embed = hikari.Embed(
         title=f"🚪 User joined",
-        description=f"**User:** `{event.member} ({event.member.id})`\n**User count:** `{len(bot.cache.get_members_view_for_guild(event.guild_id))}`",
+        description=f"**User:** {event.member} \n**User count:** `{len(bot.cache.get_members_view_for_guild(event.guild_id))}`",
         color=EMBED_GREEN,
     )
     embed.add_field(
@@ -750,7 +759,7 @@ async def member_create(
         inline=False,
     )
     embed.set_thumbnail(event.member.display_avatar_url)
-    return embed
+    return helper.embed_builder(embed, event.user)
 
 
 @component.with_listener(hikari.MemberUpdateEvent)
@@ -797,7 +806,7 @@ async def member_update(
         if member.communication_disabled_until() is None:
             embed = hikari.Embed(
                 title=f"🔉 User timeout removed",
-                description=f"**User:** `{member} ({member.id})` \n**Moderator:** `{moderator}` \n**Reason:** ```{reason}```",
+                description=f"**User:** {member.mention} \n**Moderator:** {moderator.mention} \n**Reason:** ```{reason}```",
                 color=EMBED_GREEN,
             )
             """if mod:
@@ -811,29 +820,23 @@ async def member_update(
 
             embed = hikari.Embed(
                 title=f"🔇 User timed out",
-                description=f"""**User:** `{member} ({member.id})`
-**Moderator:** `{moderator}` 
+                description=f"""**User:** {member.mention}
+**Moderator:** {moderator.mention} 
 **Until:** {format_dt(comms_disabled_until)} ({format_dt(comms_disabled_until, style='R')})
 **Reason:** ```{reason}```""",
                 color=ERROR_COLOR,
             )
-            """if mod:
-                await mod.d.actions.add_note(
-                    event.user,
-                    event.guild_id,
-                    f"🔇 **Timed out by {moderator} until {helpers.format_dt(comms_disabled_until)}:** {reason}",
-                )"""
 
-        return embed
+        return helper.embed_builder(embed, event.user)
 
     elif old_member.nickname != member.nickname:
         """Nickname change handling"""
         embed = hikari.Embed(
             title=f"🖊️ Nickname changed",
-            description=f"**User:** `{member} ({member.id})`\n**Nickname before:** `{old_member.nickname}`\n**Nickname after:** `{member.nickname}`",
+            description=f"**User:** {member.mention} \n**Nickname before:** `{old_member.nickname}`\n**Nickname after:** `{member.nickname}`",
             color=EMBED_BLUE,
         )
-        return embed
+        return helper.embed_builder(embed, event.user)
 
     elif old_member.role_ids != member.role_ids:
         # Check difference in roles between the two
@@ -865,10 +868,10 @@ async def member_update(
             assert role is not None
             embed = hikari.Embed(
                 title=f"🖊️ Member roles updated",
-                description=f"**User:** `{member} ({member.id})`\n**Moderator:** `{moderator}`\n**Role added:** {role.mention}",
+                description=f"**User:** {member.mention} \n**Moderator:** {moderator.mention}\n**Role added:** {role.mention}",
                 color=EMBED_BLUE,
             )
-            return embed
+            return helper.embed_builder(embed, event.user)
 
         elif len(rem_diff) != 0:
             role = bot.cache.get_role(rem_diff[0])
@@ -876,10 +879,82 @@ async def member_update(
 
             embed = hikari.Embed(
                 title=f"🖊️ Member roles updated",
-                description=f"**User:** `{member} ({member.id})`\n**Moderator:** `{moderator}`\n**Role removed:** {role.mention}",
+                description=f"**User:** `{member.mention} \n**Moderator:** {moderator.mention}\n**Role removed:** {role.mention}",
                 color=EMBED_BLUE,
             )
-            return embed
+            return helper.embed_builder(embed, event.user)
+
+
+@component.with_listener(hikari.VoiceStateUpdateEvent)
+@send_webhook()
+async def voice_update(
+    event: hikari.VoiceStateUpdateEvent,
+    bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
+) -> hikari.Embed:
+    old_st = event.old_state
+    st = event.state
+    channel = (
+        bot.cache.get_guild_channel(str(old_st.channel_id))
+        if old_st
+        else bot.cache.get_guild_channel(str(st.channel_id))
+    )
+    if old_st and st and old_st.channel_id and st.channel_id:
+        channel1 = bot.cache.get_guild_channel(str(st.channel_id))
+        checkdict = lambda x: {
+            "deafened": x.is_guild_deafened,
+            "muted": x.is_guild_muted,
+            "self_deafened": x.is_self_deafened,
+            "self_muted": x.is_self_muted,
+            "streaming": x.is_streaming,
+            "suppressed": x.is_suppressed,
+            "sharing video": x.is_video_enabled,
+        }
+        st_diff = list(checkdict(old_st).items() - checkdict(st).items())
+        entry = await find_auditlog_data(
+            event,
+            event_type=hikari.AuditLogEventType.MEMBER_UPDATE,
+            user_id=old_st.member.id,
+            bot=bot,
+        )
+        if st_diff != []:
+            title = "User state update"
+            text = f"Is "
+            if st_diff[0][1] == True:
+                text += f"not {st_diff[0][0]}"
+            else:
+                text += st_diff[0][0]
+            if entry:
+                text += f"\n**Moderator:** <@{entry.user_id}>"
+        else:
+            entry = await find_auditlog_data(
+                event, event_type=hikari.AuditLogEventType.MEMBER_MOVE, bot=bot
+            )
+            if entry:  # it's forced
+                title = "🔊🦵🔊 Force join"
+                text = f"Was transfered from {channel.mention} to {channel1.mention}\n**Moderator:** <@{entry.user_id}>"
+            else:
+                title = "🔊👉🔊 Joined other VC"
+                text = f"Left {channel.mention} and joined {channel1.mention}"
+    elif not old_st and st:
+        title = "🔊👈 Joined VC"
+        text = f"Joined {channel.mention}"
+    elif old_st and not st.channel_id:
+        entry = await find_auditlog_data(
+            event,
+            event_type=hikari.AuditLogEventType.MEMBER_MOVE,
+            user_id=old_st.member.id,
+            bot=bot,
+        )
+        if entry:  # it's forced
+            title = "🔊🦵🔊 Disconnect"
+            text = f"Was kicked from {channel.mention}\n**Moderator:** <@{entry.user_id}>"
+        else:
+            title = "🔊👉 Left VC"
+            text = f"Left {channel.mention}"
+    text = f"**User:** {event.old_state.member.mention if event.old_state else event.state.member.mention}\n**Action:** " + text
+    embed = hikari.Embed(title=title, description=text, color=EMBED_BLUE)
+
+    return helper.embed_builder(embed, event.old_state.member if event.old_state else event.state.member)
 
 
 @tanjun.as_loader

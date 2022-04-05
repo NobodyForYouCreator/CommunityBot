@@ -3,7 +3,7 @@ import hikari
 from StartBot.utils.helper import DB
 
 component = tanjun.Component(name="settings-mod")
-MENUS = ["logs", "soon"]
+MENUS = ["logs", "autochannel"]
 
 
 async def waiting(
@@ -101,6 +101,50 @@ async def edit_logs(
             text = "Something went wrong..."
     await ctx.edit_initial_response(text, components=None)
 
+async def edit_autochannel(ctx: tanjun.abc.SlashContext, bot: hikari.GatewayBot, db: DB, mes: hikari.Message):
+    row = bot.rest.build_action_row()
+    try:
+        data = await db.findo({"_id": ctx.guild_id})
+        datachan = data["modules"]["voice"][0]
+        text = f"I have found autochannel in <#{datachan}>, would you like to change it?"
+    except:
+        datachan = None
+        text = "I haven't found autochannel, would you like to setup it?"
+    row.add_button(hikari.ButtonStyle.SUCCESS, "1").set_label(
+        "Yes"
+        ).add_to_container()
+    row.add_button(hikari.ButtonStyle.SECONDARY, "01").set_label(
+            "Cancel"
+        ).add_to_container()
+    await ctx.edit_initial_response(text, component=row)
+    res = await waiting(bot, ctx, mes)
+    if res.interaction.custom_id == "01":
+        return await ctx.edit_initial_response("Cancelled", component=None)
+    else:
+        row = bot.rest.build_action_row()
+        menu = row.add_select_menu("channels")
+        n = 0
+        for channel in ctx.get_guild().get_channels():
+            if n == 26:
+                break
+            channel = ctx.get_guild().get_channel(channel)
+            if channel.id == int(datachan):
+                continue
+            if channel.type == 2:
+                menu.add_option(channel.name, channel.id).add_to_menu()
+                n += 1
+        menu.add_to_container()
+        await ctx.edit_initial_response("So, choose it now!", component=row)
+        res = await waiting(bot, ctx, mes)
+        try:
+            data["modules"]["voice"] = [res.interaction.values[0], []]
+            await db.updateo({"_id": ctx.guild_id}, {"modules": data["modules"]}, "set")
+            text = f"Now <#{res.interaction.values[0]}> is autochannel"
+            await bot.rest.edit_channel(res.interaction.values[0], name="Create channel")
+        except:
+            text = "Something went wrong..."
+    await ctx.edit_initial_response(text, components=None)
+        
 
 @component.with_slash_command
 @tanjun.with_author_permission_check(
@@ -126,6 +170,8 @@ async def settings(
     res = await waiting(bot, ctx, mes)
     if res.interaction.values[0] == "logs":
         await edit_logs(ctx, bot, db, mes)
+    elif res.interaction.values[0] == "autochannel":
+        await edit_autochannel(ctx, bot, db, mes)
 
 
 @tanjun.as_loader

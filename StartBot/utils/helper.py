@@ -4,14 +4,19 @@ from motor.motor_asyncio import AsyncIOMotorClient
 with open("mongotoken", mode="r", encoding="utf-8") as f:
     mongotoken = f.read().strip("\n")
 
-cluster = AsyncIOMotorClient(
-    mongotoken
-)
+cluster = AsyncIOMotorClient(mongotoken)
 database = cluster.discordlocale
 
 
 class helper:
     "Helper, simplifier for webhooks and embeds"
+
+    def embed_builder(embed: hikari.Embed, author: hikari.User | hikari.Member | hikari.Guild):
+        if type(author) == hikari.Guild or type(author) == hikari.GatewayGuild:
+            icon = author.icon_url or "https://avatanplus.com/files/resources/original/5aae7d3da9fb816239993900.png"
+        else:
+            icon = author.avatar_url or author.display_avatar_url
+        return embed.set_author(name=str(author), icon=icon)
 
     async def webhook_send(
         guild_id: int, bot: hikari.GatewayBot, embed: hikari.Embed, data: dict = None
