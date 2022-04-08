@@ -8,7 +8,7 @@ import hikari
 from functools import wraps
 from typing import Optional, TypeVar, Tuple
 from asyncio import sleep
-from StartBot.utils.helper import DB, helper
+from CommunityBot.utils.helper import DB, helper
 import datetime
 
 component = tanjun.Component(name="logs-mod")
@@ -135,6 +135,7 @@ async def find_auditlog_data(
 
 def send_webhook():
     time = datetime.datetime.now(datetime.timezone.utc)
+
     def send(func):
         @wraps(func)
         async def webhook(*args, **kwargs):
@@ -273,7 +274,7 @@ async def message_delete(
 ) -> hikari.Embed:
     if not event.old_message or event.old_message.author.is_bot:
         return
-    
+
     contents = create_log_content(event.old_message)
 
     entry = await find_auditlog_data(
@@ -316,7 +317,7 @@ async def message_update(
     event: hikari.GuildMessageUpdateEvent,
     bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot),
 ) -> hikari.Embed:
-    
+
     if (
         not event.old_message
         or not event.old_message.author
@@ -387,7 +388,11 @@ async def role_delete(
             description=f"**Role:** `{event.old_role}`\n**Moderator:** {moderator.mention}",
             color=ERROR_COLOR,
         )
-        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id))
+        return helper.embed_builder(
+            embed,
+            bot.cache.get_available_guild(event.guild_id)
+            or await bot.rest.fetch_guild(event.guild_id),
+        )
 
 
 @component.with_listener(hikari.RoleCreateEvent)
@@ -408,7 +413,11 @@ async def role_create(
             description=f"**Role:** {event.role.mention}\n**Moderator:** {moderator.mention}",
             color=EMBED_GREEN,
         )
-        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id))
+        return helper.embed_builder(
+            embed,
+            bot.cache.get_available_guild(event.guild_id)
+            or await bot.rest.fetch_guild(event.guild_id),
+        )
 
 
 @component.with_listener(hikari.RoleUpdateEvent)
@@ -450,7 +459,14 @@ async def role_update(
             description=f"""**Role:** {event.role.mention}\n**Moderator:** {moderator.mention}\n**Changes:**```ansi\n{diff}{perms_str}```""",
             color=EMBED_BLUE,
         )
-        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id)), data
+        return (
+            helper.embed_builder(
+                embed,
+                bot.cache.get_available_guild(event.guild_id)
+                or await bot.rest.fetch_guild(event.guild_id),
+            ),
+            data,
+        )
 
 
 @component.with_listener(hikari.GuildChannelDeleteEvent)
@@ -471,7 +487,11 @@ async def channel_delete(
             description=f"**Channel:** {event.channel.mention} `({event.channel.type.name})`\n**Moderator:** {moderator.mention}",  # type: ignore
             color=ERROR_COLOR,
         )
-        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id))
+        return helper.embed_builder(
+            embed,
+            bot.cache.get_available_guild(event.guild_id)
+            or await bot.rest.fetch_guild(event.guild_id),
+        )
 
 
 @component.with_listener(hikari.GuildChannelCreateEvent)
@@ -492,7 +512,11 @@ async def channel_create(
             description=f"**Channel:** {event.channel.mention} `({event.channel.type.name})`\n**Moderator:** {moderator.mention}",  # type: ignore
             color=EMBED_GREEN,
         )
-        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id))
+        return helper.embed_builder(
+            embed,
+            bot.cache.get_available_guild(event.guild_id)
+            or await bot.rest.fetch_guild(event.guild_id),
+        )
 
 
 @component.with_listener(hikari.GuildChannelUpdateEvent)
@@ -547,7 +571,14 @@ async def channel_update(
             description=f"**Channel:** {event.channel.mention}\n**Moderator:** {moderator.mention}\n**Changes:**\n```ansi\n{diff}```",
             color=EMBED_BLUE,
         )
-        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id)), data
+        return (
+            helper.embed_builder(
+                embed,
+                bot.cache.get_available_guild(event.guild_id)
+                or await bot.rest.fetch_guild(event.guild_id),
+            ),
+            data,
+        )
 
 
 @component.with_listener(hikari.GuildUpdateEvent)
@@ -608,7 +639,9 @@ async def guild_update(
             "widget_channel_id": "Widget channel",
             "nsfw_level": "NSFW Level",
         }
-        diff, data, iscolored = await get_diff(event.guild_id, event.old_guild, event.guild, attrs)
+        diff, data, iscolored = await get_diff(
+            event.guild_id, event.old_guild, event.guild, attrs
+        )
         diff = diff or "Changes could not be resolved."
 
         embed = hikari.Embed(
@@ -616,7 +649,14 @@ async def guild_update(
             description=f"Guild settings have been updated by {moderator}.\n**Changes:**\n```ansi\n{diff}```",
             color=EMBED_BLUE,
         )
-        return helper.embed_builder(embed, bot.cache.get_available_guild(event.guild_id) or await bot.rest.fetch_guild(event.guild_id)), data
+        return (
+            helper.embed_builder(
+                embed,
+                bot.cache.get_available_guild(event.guild_id)
+                or await bot.rest.fetch_guild(event.guild_id),
+            ),
+            data,
+        )
 
 
 @component.with_listener(hikari.BanDeleteEvent)
@@ -947,14 +987,21 @@ async def voice_update(
         )
         if entry:  # it's forced
             title = "🔊🦵🔊 Disconnect"
-            text = f"Was kicked from {channel.mention}\n**Moderator:** <@{entry.user_id}>"
+            text = (
+                f"Was kicked from {channel.mention}\n**Moderator:** <@{entry.user_id}>"
+            )
         else:
             title = "🔊👉 Left VC"
             text = f"Left {channel.mention}"
-    text = f"**User:** {event.old_state.member.mention if event.old_state else event.state.member.mention}\n**Action:** " + text
+    text = (
+        f"**User:** {event.old_state.member.mention if event.old_state else event.state.member.mention}\n**Action:** "
+        + text
+    )
     embed = hikari.Embed(title=title, description=text, color=EMBED_BLUE)
 
-    return helper.embed_builder(embed, event.old_state.member if event.old_state else event.state.member)
+    return helper.embed_builder(
+        embed, event.old_state.member if event.old_state else event.state.member
+    )
 
 
 @tanjun.as_loader
