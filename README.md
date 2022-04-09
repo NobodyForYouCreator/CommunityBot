@@ -31,7 +31,7 @@ Ctrl+C
 #MongoDB
 {
     "_id": <guild-id>,
-    "modules": [],
-    "users",
+    "modules": {},
+    "users": {},
 }
 ```
