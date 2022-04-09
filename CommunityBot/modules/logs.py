@@ -140,7 +140,10 @@ def send_webhook():
         @wraps(func)
         async def webhook(*args, **kwargs):
             data = None
-            embed = await func(*args, **kwargs)
+            try:
+                embed = await func(*args, **kwargs)
+            except:
+                return
             if embed and type(embed) != hikari.Embed and len(embed) == 2:
                 embed = tuple(embed)
                 data = embed[1]

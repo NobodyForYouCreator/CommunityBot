@@ -38,14 +38,14 @@ class helper:
         wh = None
 
         for wh in list(await bot.rest.fetch_channel_webhooks(channel_id)):
-            if wh.name == guild.name:
+            if wh.name == f"CB{guild.name}":
                 break
-        if wh == None or wh.name != guild.name:
+        if wh == None or wh.name != f"CB{guild.name}":
             wh = await bot.rest.create_webhook(
-                channel_id, guild.name, reason="Log Creation"
+                channel_id, f"CB{guild.name}", reason="Log Creation"
             )
         await wh.execute(
-            username=guild.name, avatar_url=guild.icon_url or None, embed=embed
+            username=guild.name, avatar_url=guild.icon_url or "https://avatanplus.com/files/resources/original/5aae7d3da9fb816239993900.png", embed=embed
         )
 
 

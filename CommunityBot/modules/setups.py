@@ -5,6 +5,39 @@ from CommunityBot.utils.helper import DB
 component = tanjun.Component(name="setups-mod")
 db = DB()
 
+@component.with_listener(hikari.GuildJoinEvent)
+async def db_add_guild(event: hikari.GuildJoinEvent) -> None:
+    data = await db.findo({"_id": event.guild_id})
+    if not data:
+        await db.inserto({"_id": event.guild_id, "modules": {}, "users": {}})
+
+@component.with_listener(hikari.GuildLeaveEvent)
+async def db_delete_guild(event: hikari.GuildLeaveEvent) -> None:
+    data = await db.findo({"_id": event.guild_id})
+    if data:
+        await db.deleteo({"_id": event.guild_id})
+
+@component.with_listener(hikari.StartedEvent)
+async def check_guild(event: hikari.StartedEvent, bot: hikari.GatewayBot = tanjun.injected(type=hikari.GatewayBot)) -> None:
+    while (guilds_id:=list(bot.cache.get_guilds_view())) in [None, []]:
+        pass
+    db_guilds_id = [i["_id"] for i in await db.findm()]
+    guilds_to_delete = []
+    guilds_to_add = []
+    if set(guilds_id) != set(db_guilds_id):
+        diff = set(guilds_id) ^ set(db_guilds_id)
+        for id in diff:
+            if id == "CommBot":
+                continue
+            if id not in guilds_id:
+                guilds_to_delete.append({"_id": id})
+            else:
+                guilds_to_add.append({"_id": id, "modules": {}, "users": {}})
+        if guilds_to_delete != []: 
+            await db.deletem(guilds_to_delete)
+        if guilds_to_add != []: 
+            await db.insertm(guilds_to_add)
+
 
 @component.with_listener(hikari.VoiceStateUpdateEvent)
 async def voice_update(

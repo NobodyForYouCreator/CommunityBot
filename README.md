@@ -8,7 +8,7 @@ Python 3.11 recommended
 ```bash
 py -m venv .venv #Recommended to create environment
 .venv\Scripts\activate #activate environment
-pip install -r requirements.txt #install libraries
+pip install -U -r requirements.txt #install libraries
 setx TOKEN <bot-token> #bot token instead <bot-token>
 setx MONGOTOKEN <mongo-token> #mongo token instead <mongo-token>
 ```

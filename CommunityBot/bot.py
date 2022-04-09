@@ -17,7 +17,7 @@ bot = hikari.GatewayBot(
     intents=intents,
     cache_settings=cache,
 )
-client = tanjun.Client.from_gateway_bot(bot, declare_global_commands=905149838373560390)
+client = tanjun.Client.from_gateway_bot(bot, declare_global_commands=[753007628409634948, 905149838373560390])
 client.add_prefix("-")
 dct = "CommunityBot.modules."
 mdls = [f"{dct}{m.stem}" for m in Path(__file__).parent.glob("modules/*.py")]

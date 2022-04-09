@@ -30,14 +30,12 @@ async def edit_logs(
     ctx: tanjun.abc.SlashContext, bot: hikari.GatewayBot, db: DB, mes: hikari.Message
 ) -> None:
     row = ctx.rest.build_action_row()
+    datachan = None
     try:
         data = await db.findo({"_id": ctx.guild_id})
         datachan = data["modules"]["logs"]
         textcolr = "simple"
-        try:
-            datacolr = data["modules"].get("logs_color")
-        except KeyError:
-            datacolr = False
+        datacolr = data["modules"].get("logs_color", False)
         if datacolr == True:
             textcolr = "colored"
 
@@ -86,7 +84,7 @@ async def edit_logs(
             if n == 26:
                 break
             channel = ctx.get_guild().get_channel(channel)
-            if channel.type not in [0, 5] or channel.id == int(datachan):
+            if channel.type not in [0, 5] or datachan and channel.id == int(datachan):
                 continue
             menu.add_option(channel.name, channel.id).add_to_menu()
             n += 1
